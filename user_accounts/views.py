@@ -1,4 +1,8 @@
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
+from .models import ToiletRanking
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 
@@ -37,4 +41,29 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('login')
+
+def submit_ranking(request):
+    """API to submit a ranking"""
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        user = request.user
+        toilet_name = data.get("toilet_name")
+        rating = data.get("rating")
+        review = data.get("review", "")
+
+        if not (1 <= rating <= 5):
+            return JsonResponse({"error": "Rating must be between 1 and 5"}, status=400)
+
+        ranking = ToiletRanking.objects.create(
+            user=user,
+            toilet_name=toilet_name,
+            rating=rating,
+            review=review
+        )
+        return JsonResponse({"message": "Ranking submitted", "id": ranking.id}, status=201)
+
+def get_rankings(request):
+    """API to fetch all rankings"""
+    rankings = ToiletRanking.objects.all().values('toilet_name', 'rating', 'review', 'user__username')
+    return JsonResponse(list(rankings), safe=False)
 
